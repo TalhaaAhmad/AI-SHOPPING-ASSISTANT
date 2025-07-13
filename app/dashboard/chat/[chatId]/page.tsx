@@ -6,9 +6,9 @@ import { auth } from "@clerk/nextjs/server";
 import ChatInterface from "@/components/ChatInterface";
 
 interface ChatPageProps {
-  params: {
+  params: Promise<{
     chatId: Id<"chats">;
-  };
+  }>;
 }
 
 export default async function ChatPage({ params }: ChatPageProps) {
