@@ -17,26 +17,27 @@ function DashboardPage() {
             </div>
 
             <h2 className="text-2xl font-semibold bg-gradient-to-br from-gray-900 to-gray-600 bg-clip-text text-transparent">
-              Welcome to the AI Agent Chat
+              Welcome to Your AI Shopping Assistant
             </h2>
 
             <p className="text-gray-600 max-w-md mx-auto">
               Start a new conversation or select an existing chat from the
-              sidebar. Your AI assistant is ready to help with any task.
+              sidebar. Your AI shopping assistant is ready to help you find products, 
+              compare prices, and make informed purchasing decisions.
             </p>
 
             <div className="pt-2 flex justify-center gap-4 text-sm text-gray-500">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                Real-time responses
+                Product recommendations
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                Smart assistance
+                Price comparisons
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                Powerful tools
+                Shopping guidance
               </div>
             </div>
 
