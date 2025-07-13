@@ -615,6 +615,13 @@ function determineResolution(
       };
 
     case ComplaintType.DAMAGED_ITEM:
+      if (preferredResolution === ResolutionType.FULL_REFUND) {
+        return {
+          type: ResolutionType.FULL_REFUND,
+          details: `Full refund for the damaged item(s). We'll also cover return shipping costs.`,
+          compensation: affectedValue // or whatever logic you use for refund amount
+        };
+      }
       return {
         type: ResolutionType.REPLACEMENT,
         details: `Free replacement of damaged item(s). We'll also cover return shipping costs.`,
@@ -697,9 +704,7 @@ function formatComplaintResponse(
   response += `• Action: ${resolution.type.replace('_', ' ').toUpperCase()}\n`;
   response += `• Details: ${resolution.details}\n`;
   
-  if ((resolution.compensation ?? 0) > 0) {
-    response += `• Compensation: $${(resolution.compensation ?? 0).toFixed(2)}\n`;
-  }
+  response += `• Compensation: $${(resolution.compensation ?? 0).toFixed(2)}\n`;
   
   response += `\n📞 **Next Steps:**\n`;
   
@@ -738,7 +743,7 @@ function formatComplaintResponse(
   }
 
   response += `\n📧 **Contact Information:**\n`;
-  response += `• Email: support@yourstore.com\n`;
+  response += `• Email: support@harshaay.com\n`;
   response += `• Phone: 1-800-SUPPORT\n`;
   response += `• Live Chat: Available 24/7 on our website\n\n`;
   
