@@ -15,7 +15,7 @@ const navigation = [
   { name: 'Complaints', href: '/complaints', icon: Shield },
 ];
 
-export default function OrdersLayoutClient({ children }: { children: React.ReactNode }) {
+export default function AdminLayoutClient({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
   const pathname = usePathname();
 

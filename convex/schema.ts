@@ -354,6 +354,7 @@ export default defineSchema({
     shippingAddress: v.string(),
     trackingNumber: v.optional(v.string()),
     returnStatus: v.optional(v.string()), // Add this field
+    chatId: v.optional(v.id("chats")),
     products: v.array(
       v.object({
         name: v.string(),

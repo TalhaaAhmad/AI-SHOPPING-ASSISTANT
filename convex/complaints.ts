@@ -478,3 +478,14 @@ export const getNextComplaintId = query({
     return `CMP-${nextNumber.toString().padStart(4, '0')}`;
   },
 });
+
+export const getComplaintsByEmail = query({
+  args: { customerEmail: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("complaints")
+      .withIndex("by_customer", (q) => q.eq("customerEmail", args.customerEmail))
+      .order("desc")
+      .collect();
+  },
+});

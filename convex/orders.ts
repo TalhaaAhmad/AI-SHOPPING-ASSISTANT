@@ -65,6 +65,7 @@ export const createOrder = mutation({
         price: v.number(),
       })
     ),
+    chatId: v.optional(v.id("chats")),
   },
   handler: async (ctx, args) => {
     const orderNumber = await getNextOrderNumber(ctx);
@@ -85,6 +86,7 @@ export const createOrder = mutation({
       shippingAddress: args.shippingAddress,
       trackingNumber: args.trackingNumber,
       products: args.products,
+      chatId: args.chatId,
     });
 
     return {

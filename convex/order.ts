@@ -142,3 +142,25 @@ export const updateOrderDelivery = mutation({
     });
   },
 });
+
+export const getOrderChat = query({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order || !order.chatId) return null;
+    
+    const chat = await ctx.db.get(order.chatId);
+    if (!chat) return null;
+    
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_chat", (q) => q.eq("chatId", order.chatId!))
+      .order("asc")
+      .collect();
+    
+    return {
+      chat,
+      messages
+    };
+  }
+});

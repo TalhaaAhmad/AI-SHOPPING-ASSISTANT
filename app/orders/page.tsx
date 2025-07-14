@@ -19,7 +19,13 @@ import {
   DollarSign,
   TrendingUp,
   ShoppingCart,
-  Users
+  Users,
+  Eye,
+  X,
+  User,
+  Bot,
+  MessageSquare,
+  Image as ImageIcon
 } from 'lucide-react';
 
 type Order = {
@@ -50,6 +56,11 @@ export default function OrdersDashboard() {
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
   const [selectedOrderId, setSelectedOrderId] = useState<Id<"orders"> | null>(null);
 
+  // Chat interface state
+  const [showChatInterface, setShowChatInterface] = useState(false);
+  const [selectedOrderForChat, setSelectedOrderForChat] = useState<Order | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
   // Convex queries and mutations
   const orders = useQuery(api.order.getOrders, {
     searchQuery: searchQuery || undefined,
@@ -58,6 +69,11 @@ export default function OrdersDashboard() {
 
   const selectedOrder = useQuery(api.order.getOrder, 
     selectedOrderId ? { id: selectedOrderId } : "skip"
+  );
+
+  // Chat query for selected order
+  const orderChat = useQuery(api.order.getOrderChat, 
+    selectedOrderForChat ? { orderId: selectedOrderForChat._id } : "skip"
   );
 
   const updateOrderStatus = useMutation(api.order.updateOrderStatus);
@@ -143,6 +159,257 @@ export default function OrdersDashboard() {
     });
     setFulfillModalOrder(null);
   };
+
+  // Chat interface helper functions
+  const openChatInterface = (order: Order) => {
+    setSelectedOrderForChat(order);
+    setShowChatInterface(true);
+  };
+
+  const closeChatInterface = () => {
+    setShowChatInterface(false);
+    setSelectedOrderForChat(null);
+    setSelectedImage(null);
+  };
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString();
+  };
+
+  const formatContent = (content: string) => {
+    return content.replace(/\\n/g, '\n').replace(/\\\\/g, '\\');
+  };
+
+  // ChatMessage component
+  const ChatMessage = ({ message }: { message: any }) => {
+    const hasAttachments = message.attachments && message.attachments.length > 0;
+    const imageAttachments = hasAttachments ? message.attachments.filter((att: any) => att.type === 'image') : [];
+
+    // Helper to get correct image src
+    const getImageSrc = (attachment: any) => {
+      if (!attachment.url) return '';
+      
+      // If it's already a complete data URL, use it as-is
+      if (attachment.url.startsWith('data:image')) {
+        return attachment.url;
+      }
+      
+      // If it's a regular HTTP URL, use it as-is
+      if (attachment.url.startsWith('http')) {
+        return attachment.url;
+      }
+      
+      // If it's a Convex storage URL, use it directly
+      if (attachment.url.includes('.convex.cloud') || attachment.url.includes('.convex.dev')) {
+        return attachment.url;
+      }
+      
+      // Check if it's base64 data without the data: prefix
+      if (attachment.url.match(/^[A-Za-z0-9+/]+=*$/)) {
+        const mimeType = attachment.mimeType || 'image/jpeg';
+        return `data:${mimeType};base64,${attachment.url}`;
+      }
+      
+      // Last resort: try to use the URL as-is
+      return attachment.url;
+    };
+
+    return (
+      <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
+        <div className={`flex max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+            message.role === 'user' ? 'bg-blue-500 ml-2' : 'bg-gray-500 mr-2'
+          }`}>
+            {message.role === 'user' ? (
+              message.imageUrl ? (
+                <img 
+                  src={message.imageUrl} 
+                  alt="User avatar" 
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              ) : (
+                <User className="w-4 h-4 text-white" />
+              )
+            ) : (
+              <Bot className="w-4 h-4 text-white" />
+            )}
+          </div>
+          <div className={`rounded-lg px-4 py-2 ${
+            message.role === 'user' 
+              ? 'bg-blue-500 text-white' 
+              : 'bg-gray-200 text-gray-800'
+          }`}>
+            <div className="text-xs opacity-75 mb-1 flex items-center justify-between">
+              <span>
+                {message.role === 'user' && (message.username || message.email) ? (
+                  <span className="font-medium">
+                    {message.username || `${message.firstName} ${message.lastName}`.trim() || message.email}
+                  </span>
+                ) : ( 
+                  <span>Assistant</span>
+                )}
+              </span>
+              <span>{formatDate(message.createdAt)}</span>
+            </div>
+            
+            {/* Text Content */}
+            {message.content && message.content.trim() && (
+              <div className="whitespace-pre-wrap break-words mb-2">
+                {formatContent(message.content)}
+              </div>
+            )}
+            
+            {/* Image Attachments */}
+            {imageAttachments.length > 0 && (
+              <div className="space-y-2">
+                {imageAttachments.map((attachment: any, index: number) => {
+                  const src = getImageSrc(attachment);              
+                  return (
+                    <div key={index} className="relative">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <ImageIcon className="w-4 h-4 opacity-70" />
+                        <span className="text-xs opacity-70">{attachment.filename}</span>
+                        {attachment.size && (
+                          <span className="text-xs opacity-50">
+                            ({(attachment.size / 1024).toFixed(1)}KB)
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="relative group">
+                        <img
+                          src={attachment.url}
+                          alt={attachment.filename}
+                          className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity border border-gray-300"
+                          onClick={() => setSelectedImage(src)}
+                          style={{ 
+                            background: "#f9f9f9",
+                            border: "1px solid #e5e7eb"
+                          }}
+                        />
+                        
+                        <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-10 transition-all rounded-lg flex items-center justify-center pointer-events-none">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye className="w-6 h-6 text-white drop-shadow-lg" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            
+            {/* No content indicator */}
+            {!message.content?.trim() && imageAttachments.length === 0 && (
+              <div className="text-xs opacity-50 italic">
+                Empty message
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Image Modal Component
+  const ImageModal = () => {
+    if (!selectedImage) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[60]">
+        <div className="relative max-w-4xl max-h-[90vh]">
+          <button
+            onClick={() => setSelectedImage(null)}
+            className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img 
+            src={selectedImage} 
+            alt="Full size image"
+            className="max-w-full max-h-full object-contain rounded-lg"
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const ChatInterface = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center space-x-3">
+            <MessageSquare className="w-6 h-6 text-blue-500" />
+            <div>
+              <h3 className="text-lg font-semibold">
+                Order Chat - {selectedOrderForChat?.id || 'Unknown Order'}
+              </h3>
+              <div className="text-sm text-gray-600 flex items-center space-x-2">
+                <span>Customer: {selectedOrderForChat?.customer}</span>
+                <span>•</span>
+                <span>{selectedOrderForChat?.email}</span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={closeChatInterface}
+            className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {!orderChat ? (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="text-center">
+                <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Loading chat messages...</p>
+              </div>
+            </div>
+          ) : !orderChat.chat ? (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="text-center">
+                <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No chat found for this order</p>
+              </div>
+            </div>
+          ) : orderChat.messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="text-center">
+                <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No messages in this conversation</p>
+              </div>
+            </div>
+          ) : (
+            orderChat.messages.map((message) => (
+              <ChatMessage key={message._id} message={message} />
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t bg-gray-50">
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span>
+              Order: {selectedOrderForChat?.id} • 
+              Status: {selectedOrderForChat?.status} • 
+              Total: {selectedOrderForChat?.totalFormatted}
+            </span>
+            <span>
+              {orderChat?.messages?.length || 0} messages
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Image Modal */}
+      <ImageModal />
+    </div>
+  );
 
   const OrderDetailView = () => {
     if (!selectedOrder) return <div>Loading...</div>;
@@ -555,6 +822,9 @@ export default function OrdersDashboard() {
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Chat
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -716,6 +986,15 @@ export default function OrdersDashboard() {
                         </button>
                       </div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => openChatInterface(order)}
+                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-lg transition-colors flex items-center space-x-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>View Chat</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -789,6 +1068,9 @@ export default function OrdersDashboard() {
           </div>
         </div>
       )}
+
+      {/* Chat Interface Modal */}
+      {showChatInterface && <ChatInterface />}
     </div>
   );
 }

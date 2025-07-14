@@ -75,7 +75,7 @@ interface Product {
 
 const orderTakingTool = new DynamicStructuredTool({
   name: "takeOrder",
-  description: "Handles order creation. Accepts natural language orders with multiple products and shipping address.",
+  description: "Handles order creation. Accepts natural language orders with multiple products and shipping address. Automatically associates the order with the current chat session.",
   schema: z.object({
     customer: z.string().describe("Customer full name"),
     email: z.string().email().describe("Customer email address"),
@@ -90,6 +90,10 @@ const orderTakingTool = new DynamicStructuredTool({
   func: async ({ customer, email, orderRequest, shippingAddress }) => {
     try {
       const convexClient = getConvexClient();
+
+      // Get the current chatId from the context
+      // This will be passed from the chat interface
+      const chatId = (globalThis as any).currentChatId;
 
       const allProducts = (await convexClient.query(api.products.getAllProducts, {})) as Product[];
       
@@ -129,7 +133,7 @@ const orderTakingTool = new DynamicStructuredTool({
       }
 
       // Calculate totals with currency support
-      const currency = products[0]?.currency || "USD";
+      const currency = products[0]?.currency || "PKR";
       const total = orderItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
       const itemsCount = orderItems.reduce((sum, item) => sum + item.quantity, 0);
       const shippingAddressString = `${shippingAddress.street}, ${shippingAddress.city}, ${shippingAddress.zip}, ${shippingAddress.country}`;
@@ -143,7 +147,7 @@ const orderTakingTool = new DynamicStructuredTool({
         brand: item.product.brand,
       }));
 
-      // Create the order
+      // Create the order with chatId if available
       const { orderIdFormatted } = await convexClient.mutation(api.orders.createOrder, {
         customer,
         email,
@@ -152,6 +156,7 @@ const orderTakingTool = new DynamicStructuredTool({
         fulfillment: "Unfulfilled",
         shippingAddress: shippingAddressString,
         products: orderProducts,
+        chatId: chatId ? (chatId as any) : undefined,
       });
 
       // Enhanced items summary with more product details

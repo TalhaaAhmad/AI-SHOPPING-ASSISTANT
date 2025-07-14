@@ -51,6 +51,7 @@ Tool-specific instructions:
 2. takeOrder:
    - Use this tool to create orders for customers.
    - Required fields: customer, email, orderRequest (natural language), shippingAddress
+   - The tool automatically associates the order with the current chat session.
    - Example input: { "customer": "John Doe", "email": "john@example.com", "orderRequest": "I want 2 laptops and 1 mouse", "shippingAddress": { "street": "123 Main St", "city": "New York", "zip": "10001", "country": "USA" } }
    - Always confirm order details with the user before processing.
    - If products are out of stock or not found, inform the user and suggest alternatives.

@@ -88,6 +88,17 @@ const tools = [
   updateOrderTool,
   complaintHandlingTool,
 ];
+
+// Create a function to initialize tools with chatId context
+const createToolsWithContext = (chatId?: string) => {
+  // Set the chatId in global context for tools to access
+  if (chatId) {
+    (globalThis as any).currentChatId = chatId;
+  }
+  
+  return tools;
+};
+
 const toolNode = new ToolNode(tools);
 
 // Connect to the LLM provider with better tool instructions
@@ -472,6 +483,9 @@ export async function submitQuestion(
       console.error('Message validation failed after processing');
       throw new Error('Invalid message structure');
     }
+
+    // Set the chatId context for tools to access
+    (globalThis as any).currentChatId = chatId;
 
     // Debug logging
     if (process.env.NODE_ENV === 'development') {
