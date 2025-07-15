@@ -8,13 +8,40 @@ A modern, full-stack AI-powered shopping assistant platform with a customer-faci
 
 - **AI Shopping Assistant**: Chat-based product search, order placement, and support
 - **Image Upload Support**: Upload and analyze images for product identification and complaint assessment
-- **Admin Dashboard**: Manage users, orders, complaints, and more
+- **WhatsApp Integration**: Receive, process, and respond to WhatsApp messages with persistent chat history and image support
+- **Admin Dashboard**: Manage users, orders, complaints, WhatsApp chats, and more
 - **Next.js 14 App Router**: Modern app directory, layouts, server/client split
 - **Clerk**: Authentication and user management
 - **Convex**: Real-time backend/database
 - **Tailwind CSS**: Modern, responsive UI
 - **Modular Tools**: Order management, complaint handling, product search, etc.
 - **Secure**: Admin-only routes, protected APIs, environment-based config
+
+---
+
+## 💬 WhatsApp Integration
+
+The platform supports seamless WhatsApp integration for real-time customer support and AI-powered conversations.
+
+### Key Features:
+- **Receive WhatsApp Messages**: Incoming WhatsApp messages (text and images) are processed by the AI agent.
+- **AI Response**: The AI generates a response and sends it back to the user via WhatsApp.
+- **Persistent Chat History**: All WhatsApp conversations are stored in Convex, maintaining full history for each contact.
+- **Image Support**: Images sent via WhatsApp are processed and can be used for product identification, complaints, and more.
+- **Admin Dashboard**: View and search all WhatsApp conversations, see message history (including images), and manage chats from the admin panel.
+- **Search & Pagination**: Easily search and paginate through WhatsApp chats in the admin dashboard.
+
+### How It Works:
+1. **Webhook Endpoint**: WhatsApp messages are sent to the `/api/chat/stream/whatsapp` endpoint.
+2. **Message Processing**: The message (and any image) is processed by the AI agent, with full chat history for context.
+3. **Response Delivery**: The AI's response is sent back to the user on WhatsApp using the configured API.
+4. **History Storage**: Both user and AI messages (with metadata and images) are stored in Convex for future reference.
+5. **Admin View**: Admins can view all WhatsApp chats, search by contact, and see full message history (including images) in the dashboard.
+
+### How to Test/Use:
+- **Send a WhatsApp message** to the configured webhook endpoint (see `app/api/chat/stream/whatsapp/route.ts`).
+- **Check the Admin Dashboard**: Go to the WhatsApp tab to view all conversations, search, and paginate.
+- **View Message Details**: Click "View Chat" to see the full message history, including images.
 
 ---
 

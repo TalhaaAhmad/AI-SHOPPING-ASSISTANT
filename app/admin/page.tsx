@@ -13,9 +13,179 @@ const ADMIN_USER_IDS = [
   "user_2zJ2jWXawy5yFT2GkYTUeQUhdmF",
 ];
 
+interface WhatsAppReplyTabProps {
+  allWhatsAppChats: any[];
+  replyChatMessages: any[];
+  handleSendReply: (message: string) => void;
+  selectedReplyChat: any;
+  setSelectedReplyChat: (chat: any) => void;
+  replyText: string;
+  setReplyText: (text: string) => void;
+  sendingReply: boolean;
+  formatDate: (timestamp: number) => string;
+}
+
+const WhatsAppReplyTab: React.FC<WhatsAppReplyTabProps> = ({
+  allWhatsAppChats,
+  replyChatMessages,
+  handleSendReply,
+  selectedReplyChat,
+  setSelectedReplyChat,
+  replyText,
+  setReplyText,
+  sendingReply,
+  formatDate,
+}) => {
+  const [waSearchTerm, setWaSearchTerm] = React.useState('');
+  const [waPage, setWaPage] = React.useState(1);
+  const waChatsPerPage = 10;
+  const filteredChats = (Array.isArray(allWhatsAppChats) ? allWhatsAppChats : []).filter((chat: any) => {
+    const term = waSearchTerm.toLowerCase();
+    return (
+      chat.contact_name?.toLowerCase().includes(term) ||
+      (chat.name && chat.name.toLowerCase().includes(term))
+    );
+  });
+  const totalPages = Math.ceil(filteredChats.length / waChatsPerPage) || 1;
+  const paginatedChats = filteredChats.slice((waPage - 1) * waChatsPerPage, waPage * waChatsPerPage);
+
+  // Helper to get last message preview
+  const getLastMessage = (chatId: string) => {
+    if (!chatId || !Array.isArray(replyChatMessages)) return '';
+    const msgs = replyChatMessages.filter((m: any) => m.chatId === chatId);
+    if (msgs.length === 0) return '';
+    return msgs[msgs.length - 1].content;
+  };
+
+  // Scroll to bottom on new message
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [replyChatMessages, selectedReplyChat]);
+
+  return (
+    <div className="flex h-[80vh] bg-white rounded-lg shadow-md overflow-hidden">
+      {/* Chat List */}
+      <div className="w-full sm:w-1/3 border-r flex flex-col min-w-[250px] max-w-[350px]">
+        <div className="p-3 border-b">
+          <input
+            type="text"
+            placeholder="Search chats..."
+            className="w-full px-3 py-2 border rounded"
+            value={waSearchTerm}
+            onChange={e => {
+              setWaSearchTerm(e.target.value);
+              setWaPage(1);
+            }}
+          />
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {paginatedChats.length === 0 ? (
+            <div className="text-center text-gray-400 mt-10">No WhatsApp conversations found.</div>
+          ) : (
+            paginatedChats.map(chat => (
+              <div
+                key={chat._id}
+                className={`p-4 cursor-pointer hover:bg-gray-100 border-b ${selectedReplyChat?._id === chat._id ? 'bg-blue-50' : ''}`}
+                onClick={() => setSelectedReplyChat(chat)}
+              >
+                <div className="font-medium truncate">{chat.name || chat.contact_name}</div>
+                <div className="text-xs text-gray-500 truncate">{getLastMessage(chat._id)}</div>
+              </div>
+            ))
+          )}
+        </div>
+        {/* Pagination controls */}
+        <div className="flex items-center justify-between p-2 border-t bg-gray-50">
+          <button
+            onClick={() => setWaPage(p => Math.max(1, p - 1))}
+            disabled={waPage === 1}
+            className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
+          >Prev</button>
+          <span className="text-sm">Page {waPage} of {totalPages}</span>
+          <button
+            onClick={() => setWaPage(p => Math.min(totalPages, p + 1))}
+            disabled={waPage === totalPages}
+            className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
+          >Next</button>
+        </div>
+      </div>
+
+      {/* Conversation */}
+      <div className="flex-1 flex flex-col bg-gray-50">
+        {selectedReplyChat ? (
+          <>
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b bg-white">
+              <div>
+                <div className="font-semibold text-lg">{selectedReplyChat.name || selectedReplyChat.contact_name}</div>
+                <div className="text-xs text-gray-500">{selectedReplyChat.contact_name}</div>
+              </div>
+              <button
+                onClick={() => setSelectedReplyChat(null)}
+                className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {(!replyChatMessages || replyChatMessages.length === 0) ? (
+                <div className="text-center text-gray-400 mt-10">No messages in this conversation</div>
+              ) : (
+                replyChatMessages.map((msg: any) => (
+                  <div
+                    key={msg._id}
+                    className={`mb-2 flex ${msg.role === 'assistant' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`rounded-lg px-4 py-2 max-w-xs break-words ${msg.role === 'assistant' ? 'bg-green-100 text-right' : 'bg-white border'}`}>
+                      <div>{msg.content}</div>
+                      <div className="text-xs text-gray-400 mt-1">{formatDate(msg.createdAt)}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+            {/* Message input */}
+            <div className="p-3 border-t flex items-center bg-white">
+              <input
+                type="text"
+                className="flex-1 px-3 py-2 border rounded mr-2"
+                placeholder="Type your reply..."
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSendReply(replyText); }}
+                disabled={sendingReply}
+              />
+              <button
+                className="bg-green-500 text-white px-4 py-2 rounded-lg"
+                onClick={() => handleSendReply(replyText)}
+                disabled={!replyText.trim() || sendingReply}
+              >
+                Send
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-400">
+            <span>Select a chat to start replying</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const AdminPage = () => {
   const { user, isLoaded } = useUser();
   const [activeTab, setActiveTab] = useState('overview');
+  // For reply tab
+  const [selectedReplyChat, setSelectedReplyChat] = useState<any>(null);
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState('');
@@ -40,6 +210,35 @@ const AdminPage = () => {
   );
 
   const allWhatsAppChats = useQuery(convexApi.whatsapp.getAllWhatsAppChats, user ? {} : "skip");
+
+  // WhatsApp chats for reply tab
+  const replyChatMessages = useQuery(
+    convexApi.whatsapp.listMessages,
+    selectedReplyChat ? { chatId: selectedReplyChat._id } : "skip"
+  );
+
+  // Handler to send reply
+  const handleSendReply = async (message: string) => {
+    if (!message.trim() || !selectedReplyChat) return;
+    setSendingReply(true);
+    try {
+      // Call backend API to send message to WhatsApp and store in Convex
+      await fetch("/api/chat/stream/whatsapp/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: selectedReplyChat._id,
+          contact_name: selectedReplyChat.contact_name,
+          message: message,
+        }),
+      });
+      setReplyText("");
+    } catch (e) {
+      alert("Failed to send reply");
+    } finally {
+      setSendingReply(false);
+    }
+  };
 
   // Convex queries - only run when user is authenticated
   const stats = useQuery(convexApi.admin.getConversationStats, user ? {} : "skip");
@@ -593,35 +792,37 @@ const ChatMessage = ({ message }: { message: any }) => {
 
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">WhatsApp Conversations</h2>
-        <div className="flex justify-between items-center mb-2">
-          <input
-            type="text"
-            placeholder="Search by contact name or number..."
-            className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={waSearchTerm}
-            onChange={e => {
-              setWaSearchTerm(e.target.value);
-              setWaPage(1); // Reset to first page on search
-            }}
-          />
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setWaPage(p => Math.max(1, p - 1))}
-              disabled={waPage === 1}
-              className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
-            >Prev</button>
-            <span>Page {waPage} of {totalPages}</span>
-            <button
-              onClick={() => setWaPage(p => Math.min(totalPages, p + 1))}
-              disabled={waPage === totalPages}
-              className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
-            >Next</button>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
+          <h2 className="text-xl font-semibold">WhatsApp Conversations</h2>
+          <div className="flex flex-1 justify-between sm:justify-end gap-2">
+            <input
+              type="text"
+              placeholder="Search by contact name or number..."
+              className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
+              value={waSearchTerm}
+              onChange={e => {
+                setWaSearchTerm(e.target.value);
+                setWaPage(1);
+              }}
+            />
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setWaPage(p => Math.max(1, p - 1))}
+                disabled={waPage === 1}
+                className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
+              >Prev</button>
+              <span className="text-sm">Page {waPage} of {totalPages}</span>
+              <button
+                onClick={() => setWaPage(p => Math.min(totalPages, p + 1))}
+                disabled={waPage === totalPages}
+                className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
+              >Next</button>
+            </div>
           </div>
         </div>
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[600px]">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Name</th>
@@ -631,22 +832,33 @@ const ChatMessage = ({ message }: { message: any }) => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedChats.map((chat: any) => (
-                  <tr key={chat._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">{chat.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{chat.contact_name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(chat.createdAt)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => openWhatsAppChatInterface(chat)}
-                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-lg transition-colors flex items-center space-x-1"
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span>View Chat</span>
-                      </button>
+                {paginatedChats.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-gray-400">
+                      <div className="flex flex-col items-center">
+                        <MessageSquare className="w-10 h-10 mb-2 opacity-30" />
+                        <span>No WhatsApp conversations found.</span>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  paginatedChats.map((chat: any) => (
+                    <tr key={chat._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">{chat.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{chat.contact_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(chat.createdAt)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => openWhatsAppChatInterface(chat)}
+                          className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-lg transition-colors flex items-center space-x-1"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>View Chat</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -951,6 +1163,7 @@ const ChatMessage = ({ message }: { message: any }) => {
               { key: 'chats', label: 'Conversations', icon: MessageSquare },
               { key: 'users', label: 'Users', icon: Users },
               { key: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
+              { key: 'whatsapp-reply', label: 'Reply to WhatsApp', icon: Send },
             ].map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -972,6 +1185,19 @@ const ChatMessage = ({ message }: { message: any }) => {
         {activeTab === 'chats' && <ChatsTable />}
         {activeTab === 'users' && renderUsers()}
         {activeTab === 'whatsapp' && <WhatsAppChatsTable />}
+        {activeTab === 'whatsapp-reply' && (
+          <WhatsAppReplyTab
+            allWhatsAppChats={allWhatsAppChats ?? []}
+            replyChatMessages={replyChatMessages ?? []}
+            handleSendReply={handleSendReply}
+            selectedReplyChat={selectedReplyChat}
+            setSelectedReplyChat={setSelectedReplyChat}
+            replyText={replyText}
+            setReplyText={setReplyText}
+            sendingReply={sendingReply}
+            formatDate={formatDate}
+          />
+        )}
       </div>
 
       {/* Chat Interface Modal */}
