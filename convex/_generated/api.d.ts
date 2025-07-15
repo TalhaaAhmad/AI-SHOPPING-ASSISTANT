@@ -23,6 +23,7 @@ import type * as products_seedProducts from "../products/seedProducts.js";
 import type * as products from "../products.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
+import type * as whatsapp from "../whatsapp.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   products: typeof products;
   seed: typeof seed;
   users: typeof users;
+  whatsapp: typeof whatsapp;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

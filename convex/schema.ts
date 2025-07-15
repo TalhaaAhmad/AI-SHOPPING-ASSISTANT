@@ -435,4 +435,34 @@ export default defineSchema({
     name: v.string(),   // e.g., "order"
     value: v.number(),  // e.g., 1000, 1001, ...
   }).index("by_name", ["name"]),
+
+  whatsapp_chats: defineTable({
+    contact_name: v.string(), // WhatsApp number (unique per chat)
+    createdAt: v.number(),
+    name: v.optional(v.string()),
+    // Optional: add more metadata fields as needed
+    // e.g., lastMessageAt: v.optional(v.number()),
+    // e.g., chatTitle: v.optional(v.string()),
+  }).index("by_contact_name", ["contact_name"]),
+
+  whatsapp_messages: defineTable({
+    chatId: v.id("whatsapp_chats"),
+    content: v.string(),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    createdAt: v.number(),
+    // WhatsApp-specific metadata
+    sender_name: v.optional(v.string()),
+    message_type: v.optional(v.string()),
+    direction: v.optional(v.string()),
+    hour: v.optional(v.string()),
+    my_number: v.optional(v.string()),
+    media: v.optional(v.string()),
+    keyword: v.optional(v.string()),
+    filename: v.optional(v.string()),
+    group_flag: v.optional(v.string()),
+    scan_number: v.optional(v.string()),
+    quote_message: v.optional(v.string()),
+    quote_from: v.optional(v.string()),
+    quote_name: v.optional(v.string()),
+  }).index("by_chat", ["chatId"]),
 });

@@ -177,7 +177,12 @@ export default function OrdersDashboard() {
   };
 
   const formatContent = (content: string) => {
-    return content.replace(/\\n/g, '\n').replace(/\\\\/g, '\\');
+    return content
+      .replace(/\\n/g, '\n') // Convert escaped newlines to real newlines
+      .replace(/-*START\s*-*/gi, '') // Remove 'START' with optional dashes/spaces, case-insensitive
+      .replace(/-*END\s*-*/gi, '')   // Remove 'END' with optional dashes/spaces, case-insensitive
+      .replace(/\\\\/g, '\\')           // Convert double backslashes to single
+      .replace(/\\+/g, '');                 // Remove any remaining single backslashes
   };
 
   // ChatMessage component

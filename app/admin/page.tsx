@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from "convex/react";
 import { useUser } from "@clerk/nextjs"; // or your auth provider
-import { api } from "../../convex/_generated/api";
+import { api as convexApi } from "../../convex/_generated/api";
 import { Search, Users, MessageSquare, Activity, Eye, Calendar, TrendingUp, Shield, AlertCircle, X, User, Bot, Send, Image as ImageIcon } from 'lucide-react';
 
 // Admin user IDs - should match your admin.ts file
@@ -24,18 +24,35 @@ const AdminPage = () => {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  // WhatsApp data
+  const [selectedWhatsAppChat, setSelectedWhatsAppChat] = useState<any>(null);
+  const [showWhatsAppChatInterface, setShowWhatsAppChatInterface] = useState(false);
+
+  // 1. Find the chat by contact_name
+  const whatsappChat = useQuery(
+    convexApi.whatsapp.getChatByContactName,
+    selectedWhatsAppChat ? { contact_name: selectedWhatsAppChat.contact_name } : "skip"
+  );
+  // 2. Fetch messages by chatId (if chat exists)
+  const whatsappMessages = useQuery(
+    convexApi.whatsapp.listMessages,
+    whatsappChat ? { chatId: whatsappChat._id } : "skip"
+  );
+
+  const allWhatsAppChats = useQuery(convexApi.whatsapp.getAllWhatsAppChats, user ? {} : "skip");
+
   // Convex queries - only run when user is authenticated
-  const stats = useQuery(api.admin.getConversationStats, user ? {} : "skip");
-  const allChats = useQuery(api.admin.getAllChats, user ? { limit: 50 } : "skip");
-  const allMessages = useQuery(api.admin.getAllMessages, user ? { limit: 100 } : "skip");
+  const stats = useQuery(convexApi.admin.getConversationStats, user ? {} : "skip");
+  const allChats = useQuery(convexApi.admin.getAllChats, user ? { limit: 50 } : "skip");
+  const allMessages = useQuery(convexApi.admin.getAllMessages, user ? { limit: 100 } : "skip");
   const userActivity = useQuery(
-    api.admin.getUserActivity, 
+    convexApi.admin.getUserActivity, 
     user && selectedUser ? { userId: selectedUser } : "skip"
   );
 
   // Search functionality
   const searchConversations = useQuery(
-    api.admin.searchConversations,
+    convexApi.admin.searchConversations,
     user && searchTerm.length > 2 ? { searchTerm, limit: 20 } : "skip"
   );
 
@@ -104,8 +121,17 @@ const AdminPage = () => {
     return new Date(timestamp).toLocaleString();
   };
 
+  // const formatContent = (content: string) => {
+  //   return content.replace(/\\n/g, '\n').replace(/\\\\/g, '\\');
+  // };
+
   const formatContent = (content: string) => {
-    return content.replace(/\\n/g, '\n').replace(/\\\\/g, '\\');
+    return content
+      .replace(/\\n/g, '\n') // Convert escaped newlines to real newlines
+      .replace(/-*START\s*-*/gi, '') // Remove 'START' with optional dashes/spaces, case-insensitive
+      .replace(/-*END\s*-*/gi, '')   // Remove 'END' with optional dashes/spaces, case-insensitive
+      .replace(/\\\\/g, '\\')           // Convert double backslashes to single
+      .replace(/\\+/g, '');                 // Remove any remaining single backslashes
   };
 
   const openChatInterface = (chat: any) => {
@@ -117,6 +143,17 @@ const AdminPage = () => {
     setShowChatInterface(false);
     setSelectedChat(null);
     setChatMessages([]);
+    setSelectedImage(null);
+  };
+
+  // WhatsApp Chat Interface
+  const openWhatsAppChatInterface = (chat: any) => {
+    setSelectedWhatsAppChat(chat);
+    setShowWhatsAppChatInterface(true);
+  };
+  const closeWhatsAppChatInterface = () => {
+    setShowWhatsAppChatInterface(false);
+    setSelectedWhatsAppChat(null);
     setSelectedImage(null);
   };
 
@@ -369,6 +406,56 @@ const ChatMessage = ({ message }: { message: any }) => {
     </div>
   );
 
+  // WhatsApp Chat Interface
+  const WhatsAppChatInterface = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center space-x-3">
+            <MessageSquare className="w-6 h-6 text-green-500" />
+            <div>
+              <h3 className="text-lg font-semibold">WhatsApp Chat: {selectedWhatsAppChat?.contact_name}</h3>
+              <div className="text-sm text-gray-600 flex items-center space-x-2">
+                <span>Created: {formatDate(selectedWhatsAppChat?.createdAt || Date.now())}</span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={closeWhatsAppChatInterface}
+            className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {(!whatsappMessages || whatsappMessages.length === 0) ? (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="text-center">
+                <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No messages in this conversation</p>
+              </div>
+            </div>
+          ) : (
+            whatsappMessages.map((message) => (
+              <ChatMessage key={message._id} message={message} />
+            ))
+          )}
+        </div>
+        {/* Footer */}
+        <div className="p-4 border-t bg-gray-50">
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span>Created: {formatDate(selectedWhatsAppChat?.createdAt || Date.now())}</span>
+            <span>{(whatsappMessages?.length ?? 0)} messages</span>
+          </div>
+        </div>
+      </div>
+      {/* Image Modal */}
+      <ImageModal />
+    </div>
+  );
+
   const ChatsTable = () => (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -485,6 +572,91 @@ const ChatMessage = ({ message }: { message: any }) => {
       )}
     </div>
   );
+
+  const WhatsAppChatsTable = () => {
+    const [waSearchTerm, setWaSearchTerm] = useState('');
+    const [waPage, setWaPage] = useState(1);
+    const waChatsPerPage = 10;
+
+    // Filter chats by search term
+    const filteredChats = (Array.isArray(allWhatsAppChats) ? allWhatsAppChats : []).filter((chat: any) => {
+      const term = waSearchTerm.toLowerCase();
+      return (
+        chat.contact_name?.toLowerCase().includes(term) ||
+        (chat.name && chat.name.toLowerCase().includes(term))
+      );
+    });
+
+    // Pagination logic
+    const totalPages = Math.ceil(filteredChats.length / waChatsPerPage) || 1;
+    const paginatedChats = filteredChats.slice((waPage - 1) * waChatsPerPage, waPage * waChatsPerPage);
+
+    return (
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">WhatsApp Conversations</h2>
+        <div className="flex justify-between items-center mb-2">
+          <input
+            type="text"
+            placeholder="Search by contact name or number..."
+            className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={waSearchTerm}
+            onChange={e => {
+              setWaSearchTerm(e.target.value);
+              setWaPage(1); // Reset to first page on search
+            }}
+          />
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setWaPage(p => Math.max(1, p - 1))}
+              disabled={waPage === 1}
+              className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
+            >Prev</button>
+            <span>Page {waPage} of {totalPages}</span>
+            <button
+              onClick={() => setWaPage(p => Math.min(totalPages, p + 1))}
+              disabled={waPage === totalPages}
+              className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
+            >Next</button>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Number</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginatedChats.map((chat: any) => (
+                  <tr key={chat._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">{chat.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{chat.contact_name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(chat.createdAt)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => openWhatsAppChatInterface(chat)}
+                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-lg transition-colors flex items-center space-x-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>View Chat</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="flex justify-end items-center mt-2">
+          <span className="text-sm text-gray-500">Showing {paginatedChats.length} of {filteredChats.length} chats</span>
+        </div>
+      </div>
+    );
+  };
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -778,6 +950,7 @@ const ChatMessage = ({ message }: { message: any }) => {
               { key: 'overview', label: 'Overview', icon: Activity },
               { key: 'chats', label: 'Conversations', icon: MessageSquare },
               { key: 'users', label: 'Users', icon: Users },
+              { key: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
             ].map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -798,10 +971,12 @@ const ChatMessage = ({ message }: { message: any }) => {
         {activeTab === 'overview' && renderOverview()}
         {activeTab === 'chats' && <ChatsTable />}
         {activeTab === 'users' && renderUsers()}
+        {activeTab === 'whatsapp' && <WhatsAppChatsTable />}
       </div>
 
       {/* Chat Interface Modal */}
       {showChatInterface && <ChatInterface />}
+      {showWhatsAppChatInterface && <WhatsAppChatInterface />}
     </div>
   );
 };
