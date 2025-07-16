@@ -113,7 +113,7 @@ youtube-ai-agent/
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/youtube-ai-agent.git
+   git clone https://github.com/yourusername/AI-SHOPPING-ASSISTANT.git
    cd youtube-ai-agent
    ```
 
@@ -170,15 +170,6 @@ youtube-ai-agent/
 
 ---
 
-## 🧩 Adding New Features or Sections
-
-1. **Create a new folder** in `app/` (e.g., `app/products/`)
-2. **Add a `layout.tsx`** (server) and `[Section]LayoutClient.tsx` (client) if you need metadata and client hooks
-3. **Add your page/components**
-4. **Update the `navigation` array** in your client layout to include the new section
-
----
-
 ## 🔒 Security
 
 - Only users with IDs in `ADMIN_USER_IDS` can access admin routes.
@@ -214,5 +205,3 @@ Pull requests and issues are welcome! Please open an issue to discuss major chan
 MIT
 
 ---
-
-If you want to add badges, screenshots, or more advanced usage, let me know!
