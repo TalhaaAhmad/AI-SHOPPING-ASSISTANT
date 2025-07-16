@@ -196,6 +196,7 @@ export default defineSchema({
     ipAddress: v.optional(v.string()), // IP address (if needed)
     timezone: v.optional(v.string()), // User's timezone
     language: v.optional(v.string()), // User's language preference
+    humanResponseNeeded: v.optional(v.boolean()), // Mark if human response is needed
   })
   .index("by_user", ["userId"])
   .index("by_email", ["email"]),

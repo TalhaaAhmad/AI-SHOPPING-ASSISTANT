@@ -10,6 +10,7 @@ import { MessageBubble } from "@/components/MessageBubble";
 import { ArrowRight, Sparkles, Image, X } from "lucide-react";
 import { getConvexClient } from "@/lib/convex";
 import { api } from "@/convex/_generated/api";
+import { useUser } from "@clerk/nextjs";
 
 interface ChatInterfaceProps {
   chatId: Id<"chats">;
@@ -41,6 +42,27 @@ export default function ChatInterface({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [chat, setChat] = useState<Doc<"chats"> | null>(null);
+  const [isEscalating, setIsEscalating] = useState(false);
+  const { user } = useUser();
+  const userId = user?.id;
+  const [confirmation, setConfirmation] = useState("");
+
+  // Fetch chat object on mount
+  useEffect(() => {
+    if (!userId) return;
+    let mounted = true;
+    (async () => {
+      const convex = getConvexClient();
+      try {
+        const chatObj = await convex.query(api.chats.getChat, { id: chatId, userId });
+        if (mounted) setChat(chatObj);
+      } catch (e) {
+        setChat(null);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [chatId, userId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -137,13 +159,12 @@ export default function ChatInterface({
     if (!trimmedInput && attachments.length === 0) return;
     if (isLoading) return;
 
-    // Reset UI state for new message
     setInput("");
     setStreamedResponse("");
     setCurrentTool(null);
     setIsLoading(true);
+    setConfirmation("");
 
-    // Add user's message immediately for better UX
     const optimisticUserMessage: Doc<"messages"> = {
       _id: `temp_${Date.now()}`,
       chatId,
@@ -154,6 +175,27 @@ export default function ChatInterface({
     } as Doc<"messages">;
 
     setMessages((prev) => [...prev, optimisticUserMessage]);
+
+    // If human escalation is active, just store the message and show confirmation
+    if (chat && chat.humanResponseNeeded) {
+      try {
+        const convex = getConvexClient();
+        await convex.mutation(api.messages.store, {
+          chatId,
+          content: trimmedInput || "Sent an image",
+          role: "user",
+          attachments: attachments.length > 0 ? attachments : undefined,
+        });
+        setConfirmation("Your message has been sent to a human agent.");
+        setAttachments([]);
+      } catch (error) {
+        setConfirmation("Failed to send message to human agent.");
+        setMessages((prev) => prev.filter((msg) => msg._id !== optimisticUserMessage._id));
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     // Track complete response for saving to database
     let fullResponse = "";
@@ -265,6 +307,20 @@ export default function ChatInterface({
     }
   };
 
+  // Escalate to human handler
+  const handleEscalate = async () => {
+    setIsEscalating(true);
+    try {
+      const convex = getConvexClient();
+      await convex.mutation(api.chats.markHumanResponseNeeded, { chatId, humanResponseNeeded: true });
+      setChat((prev) => prev ? { ...prev, humanResponseNeeded: true } : prev);
+    } catch (e) {
+      alert("Failed to escalate to human. Please try again.");
+    } finally {
+      setIsEscalating(false);
+    }
+  };
+
   return (
     <main className="flex flex-col h-[calc(100vh-theme(spacing.14))]">
       {/* Messages container */}
@@ -298,6 +354,43 @@ export default function ChatInterface({
                 </div>
               </div>
             </div>
+          )}
+          {/* Talk to Human Button */}
+          {messages.length > 5 && chat && !chat.humanResponseNeeded && (
+            <div className="flex justify-center my-4">
+              <Button onClick={handleEscalate} disabled={isEscalating} variant="outline">
+                {isEscalating ? "Requesting human..." : "Talk to Human"}
+              </Button>
+            </div>
+          )}
+          {/* Escalated message */}
+          {chat && chat.humanResponseNeeded && (
+            <div className="flex flex-col items-center my-4">
+              <div className="text-blue-600 font-semibold mb-2">
+                A human will respond to you soon. AI replies are paused.
+              </div>
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  setIsEscalating(true);
+                  try {
+                    const convex = getConvexClient();
+                    await convex.mutation(api.chats.markHumanResponseNeeded, { chatId, humanResponseNeeded: false });
+                    setChat((prev) => prev ? { ...prev, humanResponseNeeded: false } : prev);
+                  } catch (e) {
+                    alert("Failed to resume AI. Please try again.");
+                  } finally {
+                    setIsEscalating(false);
+                  }
+                }}
+                disabled={isEscalating}
+              >
+                {isEscalating ? "Resuming..." : "Resume AI"}
+              </Button>
+            </div>
+          )}
+          {confirmation && (
+            <div className="flex justify-center my-2 text-green-600 font-medium">{confirmation}</div>
           )}
           <div ref={messagesEndRef} />
         </div>

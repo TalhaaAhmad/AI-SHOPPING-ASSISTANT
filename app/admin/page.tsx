@@ -193,6 +193,7 @@ const AdminPage = () => {
   const [showChatInterface, setShowChatInterface] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [humanResponseNeeded, setHumanResponseNeeded] = React.useState(false);
 
   // WhatsApp data
   const [selectedWhatsAppChat, setSelectedWhatsAppChat] = useState<any>(null);
@@ -270,6 +271,15 @@ const AdminPage = () => {
       setChatMessages(messages);
     }
   }, [selectedChat, allMessages]);
+
+  // Fetch humanResponseNeeded when opening a chat
+  React.useEffect(() => {
+    if (selectedChat && typeof selectedChat.humanResponseNeeded === 'boolean') {
+      setHumanResponseNeeded(selectedChat.humanResponseNeeded);
+    } else {
+      setHumanResponseNeeded(false);
+    }
+  }, [selectedChat]);
 
   // Loading state
   if (!isLoaded || !user) {
@@ -541,69 +551,173 @@ const ChatMessage = ({ message }: { message: any }) => {
     );
   };
 
-  const ChatInterface = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center space-x-3">
-            <MessageSquare className="w-6 h-6 text-blue-500" />
-            <div>
-              <h3 className="text-lg font-semibold">{selectedChat?.title || 'Chat Conversation'}</h3>
-              <div className="text-sm text-gray-600 flex items-center space-x-2">
-                {selectedChat?.imageUrl && (
-                  <img 
-                    src={selectedChat.imageUrl} 
-                    alt="User avatar" 
-                    className="w-5 h-5 rounded-full object-cover"
-                  />
-                )}
-                <span>
-                  {selectedChat?.username || `${selectedChat?.firstName} ${selectedChat?.lastName}`.trim() || 'Unknown User'}
-                </span>
-                {selectedChat?.email && (
-                  <span className="text-gray-500">({selectedChat.email})</span>
-                )}
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={closeChatInterface}
-            className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+  // Add reply input to ChatInterface
+  interface ChatInterfaceProps {
+    chatMessages: any[];
+    selectedChat: any;
+    setShowChatInterface: (show: boolean) => void;
+    setSelectedChat: (chat: any) => void;
+    setChatMessages: (msgs: any[]) => void;
+    selectedImage: any;
+    setSelectedImage: (img: any) => void;
+    formatDate: (timestamp: number) => string;
+  }
+  const ChatInterface = ({
+    chatMessages = [],
+    selectedChat,
+    setShowChatInterface,
+    setSelectedChat,
+    setChatMessages,
+    selectedImage,
+    setSelectedImage,
+    formatDate,
+    humanResponseNeeded,
+    setHumanResponseNeeded,
+  }: ChatInterfaceProps & { humanResponseNeeded: boolean; setHumanResponseNeeded: (v: boolean) => void }) => {
+    const [replyText, setReplyText] = React.useState('');
+    const [sendingReply, setSendingReply] = React.useState(false);
+    const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
-        {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {chatMessages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              <div className="text-center">
-                <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No messages in this conversation</p>
+    React.useEffect(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [chatMessages, selectedChat]);
+
+    // Handler to send reply to regular chat
+    const handleSendChatReply = async (message: string) => {
+      if (!message.trim() || !selectedChat) return;
+      setSendingReply(true);
+      try {
+        // Call backend API to send message to chat and store in Convex
+        await fetch("/api/chat/stream/reply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chatId: selectedChat._id,
+            message,
+          }),
+        });
+        setReplyText("");
+      } catch (e) {
+        alert("Failed to send reply");
+      } finally {
+        setSendingReply(false);
+      }
+    };
+
+    // Handler for Talk to Human toggle
+    const handleToggleHuman = async (checked: boolean) => {
+      setHumanResponseNeeded(checked);
+      await fetch('/api/chat/mark-human', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId: selectedChat._id, humanResponseNeeded: checked }),
+      });
+    };
+
+    // Debug log
+    console.log("chatMessages.length", chatMessages.length, chatMessages);
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b">
+            <div className="flex items-center space-x-3">
+              <MessageSquare className="w-6 h-6 text-blue-500" />
+              <div>
+                <h3 className="text-lg font-semibold">{selectedChat?.title || 'Chat Conversation'}</h3>
+                <div className="text-sm text-gray-600 flex items-center space-x-2">
+                  {selectedChat?.imageUrl && (
+                    <img 
+                      src={selectedChat.imageUrl} 
+                      alt="User avatar" 
+                      className="w-5 h-5 rounded-full object-cover"
+                    />
+                  )}
+                  <span>
+                    {selectedChat?.username || `${selectedChat?.firstName} ${selectedChat?.lastName}`.trim() || 'Unknown User'}
+                  </span>
+                  {selectedChat?.email && (
+                    <span className="text-gray-500">({selectedChat.email})</span>
+                  )}
+                </div>
               </div>
             </div>
-          ) : (
-            chatMessages.map((message) => (
-              <ChatMessage key={message._id} message={message} />
-            ))
+            <button
+              onClick={() => {
+                setShowChatInterface(false);
+                setSelectedChat(null);
+              }}
+              className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Talk to Human toggle after 5 messages */}
+          {Array.isArray(chatMessages) && chatMessages.length >= 5 && (
+            <div className="flex items-center justify-end p-2">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={humanResponseNeeded}
+                  onChange={e => handleToggleHuman(e.target.checked)}
+                />
+                <span className="text-sm">Talk to Human</span>
+              </label>
+            </div>
           )}
-        </div>
+          {/* Notice if human response is needed */}
+          {humanResponseNeeded && (
+            <div className="bg-yellow-100 text-yellow-800 text-center py-2 text-sm font-medium">
+              Human response requested. AI replies are disabled for this chat.
+            </div>
+          )}
 
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50">
-          <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>Created: {formatDate(selectedChat?.createdAt || Date.now())}</span>
-            <span>{chatMessages.length} messages</span>
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            {chatMessages.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="text-center">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No messages in this conversation</p>
+                </div>
+              </div>
+            ) : (
+              chatMessages.map((message: any) => (
+                <ChatMessage key={message._id} message={message} />
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Reply input */}
+          <div className="p-3 border-t flex items-center bg-white">
+            <input
+              type="text"
+              className="flex-1 px-3 py-2 border rounded mr-2"
+              placeholder="Type your reply..."
+              value={replyText}
+              onChange={e => setReplyText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSendChatReply(replyText); }}
+              disabled={sendingReply}
+            />
+            <button
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg"
+              onClick={() => handleSendChatReply(replyText)}
+              disabled={!replyText.trim() || sendingReply}
+            >
+              Send
+            </button>
           </div>
         </div>
+        {/* Image Modal */}
+        <ImageModal />
       </div>
-      
-      {/* Image Modal */}
-      <ImageModal />
-    </div>
-  );
+    );
+  };
 
   // WhatsApp Chat Interface
   const WhatsAppChatInterface = () => (
@@ -1201,7 +1315,20 @@ const ChatMessage = ({ message }: { message: any }) => {
       </div>
 
       {/* Chat Interface Modal */}
-      {showChatInterface && <ChatInterface />}
+      {showChatInterface && (
+        <ChatInterface
+          chatMessages={chatMessages}
+          selectedChat={selectedChat}
+          setShowChatInterface={setShowChatInterface}
+          setSelectedChat={setSelectedChat}
+          setChatMessages={setChatMessages}
+          selectedImage={selectedImage}
+          setSelectedImage={setSelectedImage}
+          formatDate={formatDate}
+          humanResponseNeeded={humanResponseNeeded}
+          setHumanResponseNeeded={setHumanResponseNeeded}
+        />
+      )}
       {showWhatsAppChatInterface && <WhatsAppChatInterface />}
     </div>
   );

@@ -108,3 +108,10 @@ export const getChat = query({
     }
   },
 });
+
+export const markHumanResponseNeeded = mutation({
+  args: { chatId: v.id("chats"), humanResponseNeeded: v.boolean() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.chatId, { humanResponseNeeded: args.humanResponseNeeded });
+  }
+});
