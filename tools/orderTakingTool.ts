@@ -193,7 +193,7 @@ Thank you for your order! You'll receive a confirmation email shortly.`;
 });
 
 // Helper function to format price with currency
-function formatPrice(price: number, currency: string = 'USD'): string {
+function formatPrice(price: number, currency: string = 'PKR'): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency,

@@ -6,13 +6,11 @@ const SHOW_COMMENTS = true;
 export const list = query({
   args: { chatId: v.id("chats") },
   handler: async (ctx, args) => {
-
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_chat", (q) => q.eq("chatId", args.chatId))
       .order("asc")
       .collect();
-
     return messages;
   },
 });
@@ -30,7 +28,6 @@ export const send = mutation({
     }))),
   },
   handler: async (ctx, args) => {
-
     // Save the user message with preserved newlines
     const messageId = await ctx.db.insert("messages", {
       chatId: args.chatId,
@@ -39,7 +36,6 @@ export const send = mutation({
       createdAt: Date.now(),
       attachments: args.attachments,
     });
-
     return messageId;
   },
 });
@@ -58,8 +54,6 @@ export const store = mutation({
     }))),
   },
   handler: async (ctx, args) => {
-
-
     // Store message with preserved newlines and HTML
     const messageId = await ctx.db.insert("messages", {
       chatId: args.chatId,
@@ -71,7 +65,6 @@ export const store = mutation({
       createdAt: Date.now(),
       attachments: args.attachments,
     });
-
     return messageId;
   },
 });
@@ -83,18 +76,15 @@ export const getLastMessage = query({
     if (!identity) {
       throw new Error("Not authenticated");
     }
-
     const chat = await ctx.db.get(args.chatId);
     if (!chat || chat.userId !== identity.subject) {
       throw new Error("Unauthorized");
     }
-
     const lastmessage = await ctx.db
       .query("messages")
       .withIndex("by_chat", (q) => q.eq("chatId", args.chatId))
       .order("desc")
       .first();
-
     return lastmessage;
   },
 });

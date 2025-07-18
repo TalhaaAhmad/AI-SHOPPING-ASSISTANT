@@ -115,3 +115,10 @@ export const markHumanResponseNeeded = mutation({
     await ctx.db.patch(args.chatId, { humanResponseNeeded: args.humanResponseNeeded });
   }
 });
+
+export const updateChatTitle = mutation({
+  args: { chatId: v.id("chats"), title: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.chatId, { title: args.title });
+  }
+});

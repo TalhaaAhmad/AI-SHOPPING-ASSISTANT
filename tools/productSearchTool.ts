@@ -125,7 +125,7 @@ const productSearchTool = new DynamicStructuredTool({
     };
 
     // Helper function to format price
-    const formatPrice = (price: number, currency: string = 'USD'): string => {
+    const formatPrice = (price: number, currency: string = 'PKR'): string => {
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: currency,

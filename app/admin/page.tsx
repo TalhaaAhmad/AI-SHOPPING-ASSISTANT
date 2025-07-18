@@ -179,6 +179,181 @@ const WhatsAppReplyTab: React.FC<WhatsAppReplyTabProps> = ({
   );
 };
 
+interface ChatType {
+  _id: string;
+  title?: string;
+  username?: string;
+  email?: string;
+  humanResponseNeeded?: boolean;
+}
+
+interface MessageType {
+  _id: string;
+  chatId: string;
+  content: string;
+  role: string;
+  createdAt: number;
+}
+
+interface HumanEscalationsTabProps {
+  allChats: { page: ChatType[] };
+  allMessages: { page: MessageType[] };
+  handleSendReply: (message: string, chatObj?: ChatType) => void;
+  formatDate: (timestamp: number) => string;
+}
+
+const HumanEscalationsTab: React.FC<HumanEscalationsTabProps> = ({
+  allChats,
+  allMessages,
+  handleSendReply,
+  formatDate,
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const chatsPerPage = 10;
+  // Filter for escalated chats
+  const escalatedChats = allChats.page.filter((chat: ChatType) => chat.humanResponseNeeded);
+  const filteredChats = escalatedChats.filter((chat: ChatType) => {
+    const term = searchTerm.toLowerCase();
+    return (
+      chat.title?.toLowerCase().includes(term) ||
+      chat.username?.toLowerCase().includes(term) ||
+      chat.email?.toLowerCase().includes(term)
+    );
+  });
+  const totalPages = Math.ceil(filteredChats.length / chatsPerPage) || 1;
+  const paginatedChats = filteredChats.slice((page - 1) * chatsPerPage, page * chatsPerPage);
+  const [selectedChat, setSelectedChat] = useState<ChatType | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const chatMessages: MessageType[] = selectedChat
+    ? allMessages.page.filter((m: MessageType) => m.chatId === selectedChat._id).sort((a: MessageType, b: MessageType) => a.createdAt - b.createdAt)
+    : [];
+  // Helper to get last message preview
+  const getLastMessage = (chatId: string): string => {
+    const msgs = allMessages.page.filter((m: MessageType) => m.chatId === chatId);
+    if (msgs.length === 0) return '';
+    return msgs[msgs.length - 1].content;
+  };
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, selectedChat]);
+  return (
+    <div className="flex h-[80vh] bg-white rounded-lg shadow-md overflow-hidden">
+      {/* Chat List */}
+      <div className="w-full sm:w-1/3 border-r flex flex-col min-w-[250px] max-w-[350px]">
+        <div className="p-3 border-b">
+          <input
+            type="text"
+            placeholder="Search chats..."
+            className="w-full px-3 py-2 border rounded"
+            value={searchTerm}
+            onChange={e => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {paginatedChats.length === 0 ? (
+            <div className="text-center text-gray-400 mt-10">No escalated conversations found.</div>
+          ) : (
+            paginatedChats.map((chat: ChatType) => (
+              <div
+                key={chat._id}
+                className={`p-4 cursor-pointer hover:bg-gray-100 border-b ${selectedChat?._id === chat._id ? 'bg-blue-50' : ''}`}
+                onClick={() => setSelectedChat(chat)}
+              >
+                <div className="font-medium truncate">{chat.title || chat.username || chat.email}</div>
+                <div className="text-xs text-gray-500 truncate">{getLastMessage(chat._id)}</div>
+              </div>
+            ))
+          )}
+        </div>
+        {/* Pagination controls */}
+        <div className="flex items-center justify-between p-2 border-t bg-gray-50">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
+          >Prev</button>
+          <span className="text-sm">Page {page} of {totalPages}</span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
+          >Next</button>
+        </div>
+      </div>
+      {/* Conversation */}
+      <div className="flex-1 flex flex-col bg-gray-50">
+        {selectedChat ? (
+          <>
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b bg-white">
+              <div>
+                <div className="font-semibold text-lg">{selectedChat.title || selectedChat.username || selectedChat.email}</div>
+                <div className="text-xs text-gray-500">{selectedChat.email}</div>
+              </div>
+              <button
+                onClick={() => setSelectedChat(null)}
+                className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {chatMessages.length === 0 ? (
+                <div className="text-center text-gray-400 mt-10">No messages in this conversation</div>
+              ) : (
+                chatMessages.map((msg: MessageType) => (
+                  <div
+                    key={msg._id}
+                    className={`mb-2 flex ${msg.role === 'assistant' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`rounded-lg px-4 py-2 max-w-xs break-words ${msg.role === 'assistant' ? 'bg-green-100 text-right' : 'bg-white border'}`}>
+                      <div>{msg.content}</div>
+                      <div className="text-xs text-gray-400 mt-1">{formatDate(msg.createdAt)}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+            {/* Message input */}
+            <div className="p-3 border-t flex items-center bg-white">
+              <input
+                type="text"
+                className="flex-1 px-3 py-2 border rounded mr-2"
+                placeholder="Type your reply..."
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSendReply(replyText, selectedChat); }}
+                disabled={sendingReply}
+              />
+              <button
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg"
+                onClick={() => handleSendReply(replyText, selectedChat)}
+                disabled={!replyText.trim() || sendingReply}
+              >
+                Send
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-400">
+            <span>Select a chat to start replying</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const AdminPage = () => {
   const { user, isLoaded } = useUser();
   const [activeTab, setActiveTab] = useState('overview');
@@ -219,18 +394,18 @@ const AdminPage = () => {
   );
 
   // Handler to send reply
-  const handleSendReply = async (message: string) => {
-    if (!message.trim() || !selectedReplyChat) return;
+  const handleSendReply = async (message: string, chatObj?: any) => {
+    const chat = chatObj || selectedReplyChat;
+    if (!message.trim() || !chat) return;
     setSendingReply(true);
     try {
-      // Call backend API to send message to WhatsApp and store in Convex
-      await fetch("/api/chat/stream/whatsapp/reply", {
+      // Call backend API to send message to chat and store in Convex
+      await fetch("/api/chat/stream/reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chatId: selectedReplyChat._id,
-          contact_name: selectedReplyChat.contact_name,
-          message: message,
+          chatId: chat._id,
+          message,
         }),
       });
       setReplyText("");
@@ -1278,6 +1453,7 @@ const ChatMessage = ({ message }: { message: any }) => {
               { key: 'users', label: 'Users', icon: Users },
               { key: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
               { key: 'whatsapp-reply', label: 'Reply to WhatsApp', icon: Send },
+              { key: 'escalations', label: 'Human Escalations', icon: AlertCircle },
             ].map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -1309,6 +1485,14 @@ const ChatMessage = ({ message }: { message: any }) => {
             replyText={replyText}
             setReplyText={setReplyText}
             sendingReply={sendingReply}
+            formatDate={formatDate}
+          />
+        )}
+        {activeTab === 'escalations' && (
+          <HumanEscalationsTab
+            allChats={allChats}
+            allMessages={allMessages}
+            handleSendReply={handleSendReply}
             formatDate={formatDate}
           />
         )}
