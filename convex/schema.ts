@@ -298,6 +298,7 @@ export default defineSchema({
     }))),
     
     // Analytics and performance
+     // Analytics and performance
     viewCount: v.optional(v.number()),
     salesCount: v.optional(v.number()),
     rating: v.optional(v.number()), // Average rating
